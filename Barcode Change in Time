@@ -1,0 +1,19 @@
+SELECT
+     al.action,
+     al.timestamp AS 'Date Card# Changed',
+     patron.dateenrolled AS 'Date Registered',
+     al.user AS 'Modified By',
+     JSON_UNQUOTE(JSON_EXTRACT(al.info, '$.cardnumber.before')) AS 'Old_Card',
+     JSON_UNQUOTE(JSON_EXTRACT(al.info, '$.cardnumber.after')) AS 'Current',
+     al.object AS 'Patron Borrowernum',
+     al.info
+FROM action_logs al
+LEFT JOIN borrowers staff
+  ON staff.borrowernumber = al.user
+LEFT JOIN borrowers patron
+  ON patron.borrowernumber = al.object
+WHERE al.module = 'MEMBERS'
+  AND al.action = 'MODIFY'
+  AND date(al.timestamp) >= DATE_SUB(CURDATE(), INTERVAL 6  DAY)
+ORDER BY al.timestamp DESC, 'Old_Card' ASC
+LIMIT 60
