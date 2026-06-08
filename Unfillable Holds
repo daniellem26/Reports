@@ -1,0 +1,22 @@
+SELECT 
+  r.biblionumber, 
+  (SELECT MIN(itemcallnumber) 
+FROM items 
+WHERE biblionumber=b.biblionumber) 
+AS 'call number', 
+b.title, 
+bi.itemtype, 
+p.borrowernumber, 
+CASE WHEN r.item_level_hold = 1 THEN 'Item' ELSE 'Bib' END AS 'hold type', 
+r.reservedate, 
+CASE WHEN r.suspend = 0 THEN 'No' ELSE 'Yes' END AS 'suspended', 
+r.expirationdate, 
+r.branchcode
+
+FROM reserves r
+LEFT JOIN biblio b USING (biblionumber)
+LEFT JOIN (SELECT itemnumber, biblionumber, itype, itemcallnumber FROM items WHERE damaged = 0 AND itemlost=0 AND withdrawn = 0) i USING (biblionumber)
+LEFT JOIN borrowers p USING (borrowernumber)
+LEFT JOIN biblioitems bi ON (bi.biblionumber=b.biblionumber)
+
+WHERE i.itemnumber IS NULL
