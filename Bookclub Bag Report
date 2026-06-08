@@ -1,0 +1,11 @@
+SELECT b.title, b.subtitle, b.author
+FROM biblio b
+WHERE EXISTS (
+    SELECT 1
+    FROM items i
+    WHERE i.biblionumber = b.biblionumber
+      AND i.homebranch = 'RCPL'
+      AND i.itype = 'BOOKSTOGO'
+      AND i.damaged ='0'
+)
+ORDER BY b.biblionumber DESC
