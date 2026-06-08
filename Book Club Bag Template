@@ -1,0 +1,40 @@
+<div class="page">
+  <h1   style="text-align: center">Book Club Bags</h1>
+
+  [% FOREACH row IN data %]
+    <div class="list-item">
+      <div class="title">
+        [% row.title %][% IF row.subtitle %] [% row.subtitle %][% END %]
+      </div>
+      [% IF row.author %]
+        <div class="author">by [% row.author.replace(',\s*$', '') %]</div>
+      [% END %]
+    </div>
+  [% END %]
+</div>
+
+<style>
+@page {
+  size: Letter;
+  margin: 0.5in;
+}
+
+.page {
+  font: 12pt Arial, sans-serif;
+  color: #000;
+}
+
+.list-item {
+  margin-bottom: 9pt;
+  page-break-inside: avoid;
+}
+
+.title {
+  font-weight: bold;
+  margin-bottom: 2pt;
+}
+
+.author {
+  color: #444;
+}
+</style>
