@@ -1,0 +1,103 @@
+SELECT
+  al.timestamp,
+  COALESCE(CONCAT(u.firstname, ' ', u.surname), 'System') AS staff_user,
+  al.module,
+  al.action,
+  GROUP_CONCAT(
+    CONCAT(
+      COALESCE(av_field.lib, fm.field), ': ',
+      /* old translated */
+      CASE fm.field
+        WHEN 'location'            THEN COALESCE(av_loc_old.lib, fm.old_value)
+        WHEN 'permanent_location'  THEN COALESCE(av_loc_old.lib, fm.old_value)
+        WHEN 'notforloan'          THEN COALESCE(av_nfl_old.lib, fm.old_value)
+        WHEN 'itemlost'            THEN COALESCE(av_lost_old.lib, fm.old_value)
+        WHEN 'itype'               THEN COALESCE(it_old.description, fm.old_value)
+        WHEN 'homebranch'          THEN COALESCE(br_old_home.branchname, fm.old_value)
+        WHEN 'holdingbranch'       THEN COALESCE(br_old_hold.branchname, fm.old_value)
+        ELSE fm.old_value
+      END,
+      ' → ',
+      /* new translated */
+      CASE fm.field
+        WHEN 'location'            THEN COALESCE(av_loc_new.lib, fm.new_value)
+        WHEN 'permanent_location'  THEN COALESCE(av_loc_new.lib, fm.new_value)
+        WHEN 'notforloan'          THEN COALESCE(av_nfl_new.lib, fm.new_value)
+        WHEN 'itemlost'            THEN COALESCE(av_lost_new.lib, fm.new_value)
+        WHEN 'itype'               THEN COALESCE(it_new.description, fm.new_value)
+        WHEN 'homebranch'          THEN COALESCE(br_new_home.branchname, fm.new_value)
+        WHEN 'holdingbranch'       THEN COALESCE(br_new_hold.branchname, fm.new_value)
+        ELSE fm.new_value
+      END
+    )
+    ORDER BY fm.field
+    SEPARATOR '<br />'
+  ) AS field_changes
+FROM action_logs al
+LEFT JOIN borrowers u ON u.borrowernumber = al.user
+LEFT JOIN (
+  SELECT
+    al2.action_id,
+    f.field,
+    JSON_UNQUOTE(JSON_EXTRACT(al2.diff, CONCAT('$.D.', f.field, '.O'))) AS old_value,
+    JSON_UNQUOTE(JSON_EXTRACT(al2.diff, CONCAT('$.D.', f.field, '.N'))) AS new_value
+  FROM action_logs al2
+  JOIN (
+    SELECT 'itemcallnumber' AS field
+    UNION SELECT 'location'
+    UNION SELECT 'permanent_location'
+    UNION SELECT 'itype'
+    UNION SELECT 'homebranch'
+    UNION SELECT 'holdingbranch'
+    UNION SELECT 'itemlost'
+    UNION SELECT 'notforloan'
+    UNION SELECT 'withdrawn'
+    UNION SELECT 'damaged'
+    UNION SELECT 'barcode'
+  ) AS f
+  WHERE al2.diff IS NOT NULL
+) AS fm
+  ON fm.action_id = al.action_id
+ AND (fm.old_value IS NOT NULL OR fm.new_value IS NOT NULL)
+
+LEFT JOIN authorised_values av_loc_old   ON av_loc_old.category = 'LOC'       AND av_loc_old.authorised_value = fm.old_value
+LEFT JOIN authorised_values av_loc_new   ON av_loc_new.category = 'LOC'       AND av_loc_new.authorised_value = fm.new_value
+LEFT JOIN authorised_values av_nfl_old   ON av_nfl_old.category = 'NOT_LOAN'  AND av_nfl_old.authorised_value = fm.old_value
+LEFT JOIN authorised_values av_nfl_new   ON av_nfl_new.category = 'NOT_LOAN'  AND av_nfl_new.authorised_value = fm.new_value
+LEFT JOIN authorised_values av_lost_old  ON av_lost_old.category = 'LOST'     AND av_lost_old.authorised_value = fm.old_value
+LEFT JOIN authorised_values av_lost_new  ON av_lost_new.category = 'LOST'     AND av_lost_new.authorised_value = fm.new_value
+LEFT JOIN itemtypes          it_old      ON it_old.itemtype = fm.old_value
+LEFT JOIN itemtypes          it_new      ON it_new.itemtype = fm.new_value
+LEFT JOIN branches           br_old_home ON fm.field = 'homebranch'   AND br_old_home.branchcode = fm.old_value
+LEFT JOIN branches           br_new_home ON fm.field = 'homebranch'   AND br_new_home.branchcode = fm.new_value
+LEFT JOIN branches           br_old_hold ON fm.field = 'holdingbranch' AND br_old_hold.branchcode = fm.old_value
+LEFT JOIN branches           br_new_hold ON fm.field = 'holdingbranch' AND br_new_hold.branchcode = fm.new_value
+LEFT JOIN authorised_values  av_field    ON av_field.category = 'ITEMFIELDS'  AND av_field.authorised_value = fm.field
+WHERE
+  al.object = <<Itemnumber>>
+  AND al.module = 'CATALOGUING'
+GROUP BY al.action_id, al.timestamp, staff_user, al.module, al.action
+
+UNION ALL
+
+/* Transfers line (single, compact) */
+SELECT
+  al.timestamp,
+  COALESCE(CONCAT(u.firstname, ' ', u.surname), 'System') AS staff_user,
+  al.module,
+  al.action,
+  CONCAT(
+    'holdingbranch: ',
+    COALESCE(br_from.branchname, JSON_UNQUOTE(JSON_EXTRACT(al.info,'$.frombranch'))),
+    ' → ',
+    COALESCE(br_to.branchname,   JSON_UNQUOTE(JSON_EXTRACT(al.info,'$.tobranch')))
+  ) AS field_changes
+FROM action_logs al
+LEFT JOIN borrowers u ON u.borrowernumber = al.user
+LEFT JOIN branches br_from ON br_from.branchcode = JSON_UNQUOTE(JSON_EXTRACT(al.info,'$.frombranch'))
+LEFT JOIN branches br_to   ON br_to.branchcode   = JSON_UNQUOTE(JSON_EXTRACT(al.info,'$.tobranch'))
+WHERE
+  al.object = <<Itemnumber>>
+  AND al.module = 'TRANSFERS'
+
+ORDER BY timestamp DESC
