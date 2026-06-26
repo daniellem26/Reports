@@ -1,0 +1,7 @@
+SELECT borrowernumber, letter_code, content, message_transport_type, to_address, from_address, updated_on, status
+FROM message_queue mq
+WHERE updated_on
+  BETWEEN <<Sent between |date>> AND <<and |date>> 
+  AND letter_code LIKE CONCAT('%',<<enter lettercode>>,'%')
+  AND mq.message_transport_type = <<Notiice Type|MSGTYPE:all>>
+ORDER BY updated_on DESC
