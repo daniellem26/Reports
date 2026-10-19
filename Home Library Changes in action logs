@@ -1,0 +1,19 @@
+
+SELECT
+    al.timestamp AS `Date and time`,
+    al.object AS `Item number`,
+    i.barcode AS `Barcode`,
+    al.user AS `Staff borrowernumber`,
+    CONCAT_WS(' ', s.firstname, s.surname) AS `Staff name`,
+    al.interface AS `Interface`,
+    al.info AS `Log information`,
+    al.diff AS `Change details`
+FROM action_logs al
+LEFT JOIN items i
+    ON i.itemnumber = al.object
+LEFT JOIN borrowers s
+    ON s.borrowernumber = al.user
+WHERE al.module = 'CATALOGUING'
+  AND al.action = 'MODIFY'
+ORDER BY al.timestamp DESC
+LIMIT 100;
