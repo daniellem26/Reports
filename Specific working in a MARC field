@@ -1,0 +1,9 @@
+SELECT
+    b.biblionumber,
+    b.title
+FROM biblio b
+JOIN biblio_metadata bm
+    ON bm.biblionumber = b.biblionumber
+WHERE bm.metadata REGEXP
+'<datafield tag="856".*<subfield code="u">[^<]*(overdrive\\.com|contentreserve\\.com|hoopla|yourcloudlibrary|axis360\\.baker-taylor\\.com|mydomain\\.com|anotherdomain\\.com)'
+ORDER BY b.title;
