@@ -1,0 +1,19 @@
+SELECT
+    b.biblionumber,
+    b.title,
+    ExtractValue(
+        bm.metadata,
+        '//datafield[@tag="856"]/subfield[@code="u"]'
+    ) AS url
+FROM biblio b
+JOIN biblio_metadata bm
+    ON bm.biblionumber = b.biblionumber
+WHERE ExtractValue(
+        bm.metadata,
+        '//datafield[@tag="856"]/subfield[@code="u"]'
+      ) IS NOT NULL
+  AND ExtractValue(
+        bm.metadata,
+        '//datafield[@tag="856"]/subfield[@code="u"]'
+      ) <> ''
+ORDER BY b.title;
