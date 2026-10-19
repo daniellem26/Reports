@@ -1,0 +1,56 @@
+
+SELECT
+    FORMAT(c.total_checkouts, 0) AS 'Total Checkouts',
+    FORMAT(c.total_borrowers, 0) AS 'Total Borrowers',
+    FORMAT(r.total_renewals, 0) AS 'Total Renewals',
+    CONCAT('$', FORMAT(c.checkout_savings, 2))
+        AS 'Checkout Cost Savings (USD)',
+    CONCAT('$', FORMAT(r.renewal_savings, 2))
+        AS 'Renewal Cost Savings (USD)',
+    CONCAT('$', FORMAT(
+        c.checkout_savings + r.renewal_savings, 2
+    )) AS 'Total Cost Savings (USD)'
+FROM (
+    SELECT
+        COUNT(*) AS total_checkouts,
+        COUNT(DISTINCT borrowernumber) AS total_borrowers,
+        COALESCE(SUM(replacementprice), 0) AS checkout_savings
+    FROM (
+        SELECT
+            co.itemnumber,
+            co.borrowernumber,
+            i.replacementprice
+        FROM (
+            SELECT itemnumber, borrowernumber, issuedate
+            FROM issues
+            WHERE issuedate >= <<Start date|date>>
+              AND issuedate < DATE_ADD(
+                  <<End date|date>>, INTERVAL 1 DAY
+              )
+
+            UNION ALL
+
+            SELECT itemnumber, borrowernumber, issuedate
+            FROM old_issues
+            WHERE issuedate >= <<Start date|date>>
+              AND issuedate < DATE_ADD(
+                  <<End date|date>>, INTERVAL 1 DAY
+              )
+        ) co
+        LEFT JOIN items i
+            ON i.itemnumber = co.itemnumber
+    ) checkout_items
+) c
+CROSS JOIN (
+    SELECT
+        COUNT(*) AS total_renewals,
+        COALESCE(SUM(i.replacementprice), 0) AS renewal_savings
+    FROM statistics s
+    LEFT JOIN items i
+        ON i.itemnumber = s.itemnumber
+    WHERE s.type = 'renew'
+      AND s.datetime >= <<Start date|date>>
+      AND s.datetime < DATE_ADD(
+          <<End date|date>>, INTERVAL 1 DAY
+      )
+) r;
